@@ -35,12 +35,17 @@ const Home: NextPage = () => {
     setShowPopup(true);
     setLoadingMessage("Transaction submitted! Waiting for confirmation...");
 
-    writeContract({
+    await writeContract({
       abi,
       address: ca,
       functionName: "createRequest",
       args: [formResponder, parseEther(formAmount)],
     });
+
+    setFormResponder("");
+    setFormAmount("");
+
+    return;
   };
 
   const [formResponder, setFormResponder] = useState("");
@@ -253,6 +258,7 @@ const Home: NextPage = () => {
           <input
             id="responder-address"
             type="text"
+            value={formResponder}
             placeholder="0xAddress"
             className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm overflow-x-auto"
             style={{ wordBreak: "break-all" }}
@@ -271,6 +277,7 @@ const Home: NextPage = () => {
           <input
             id="amount"
             type="text"
+            value={formAmount} // ✅ Ensure input is controlled
             placeholder="e.g., 1 ETH"
             className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm"
             onChange={(e) => setFormAmount(e.target.value)}
