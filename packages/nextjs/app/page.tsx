@@ -301,30 +301,28 @@ const Home: NextPage = () => {
           <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center relative">
 
+              {/*Close button (X icon) positioned at top-right */}
               <button
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
                 onClick={() => setShowPopup(false)}
               >
+                ✖
               </button>
 
+              {/* Popup Title */}
               <h3 className="text-lg font-bold text-blue-600">
                 {popupAction === "Create" && "Processing Request..."}
                 {popupAction === "Complete" && "Completing Request..."}
                 {popupAction === "Reject" && "Rejecting Request..."}
               </h3>
 
+              {/* Loading Message */}
               <p className="text-gray-700 mt-2">{loadingMessage}</p>
 
+              {/* Transaction Status Messages */}
               {isConfirming && <p className="text-yellow-500 mt-2">Waiting for Confirmation...</p>}
               {isConfirmed && <p className="text-green-500 mt-2">Transaction Confirmed ✅</p>}
               {isError && <p className="text-red-500 mt-2">Transaction Failed ❌</p>}
-
-              <button
-                className="mt-4 px-4 py-2 rounded-lg rounded-2xl text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
-                onClick={() => setShowPopup(false)}
-              >
-                Close
-              </button>
 
             </div>
           </div>
