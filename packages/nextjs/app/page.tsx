@@ -1,11 +1,13 @@
 "use client";
 
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseEther, isAddress } from "viem";
-import { useState, } from "react";
+import { parseEther, isAddress, parseAbiItem, decodeEventLog, formatEther } from "viem";
+import { useState, useEffect } from "react";
 import deployedContracts from "../contracts/deployedContracts";
+import { format } from "date-fns";
+
 
 
 const Home: NextPage = () => {
@@ -63,6 +65,108 @@ const Home: NextPage = () => {
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [popupAction, setPopupAction] = useState("");
+
+  interface Request {
+    id: number;
+    asker: string;
+    responder: string;
+    amount: string;
+    status: string;
+    timestamp: string;
+  }
+
+  const [requests, setRequests] = useState([
+    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", timestamp: "2021-10-01 12:00:00" },
+  ]);
+  const [selectedList, setSelectedList] = useState("asker");
+
+
+  const publicClient = usePublicClient();
+  const fetchRequests = async () => {
+    try {
+      if (!publicClient) {
+        console.error("Public client is not defined.");
+        return;
+      }
+
+      const logs = await publicClient.getLogs({
+        address: ca,
+        fromBlock: 0n,
+        toBlock: "latest",
+        event: parseAbiItem('event RequestCreated(uint requestId, address indexed asker, address indexed responder, uint amount)'),
+      });
+
+      const reversedLogs = logs.reverse();
+      const decodedRequests = await Promise.all(
+        reversedLogs.map(async (log) => {
+          const { args } = decodeEventLog({
+            // TODO: Fix this to use the correct ABI
+            abi: [
+              {
+                type: "event",
+                name: "RequestCreated",
+                inputs: [
+                  { indexed: false, name: "id", type: "uint256" },
+                  { indexed: true, name: "asker", type: "address" },
+                  { indexed: true, name: "responder", type: "address" },
+                  { indexed: false, name: "amount", type: "uint256" },
+                ],
+              },
+            ],
+            data: log.data,
+            topics: log.topics,
+          });
+
+          const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+          const timestamp = format(new Date(Number(block.timestamp) * 1000), "yyyy-MM-dd HH:mm:ss"); // Convert to readable date
+
+          const req: Request = {
+            id: Number(args.id),
+            asker: args.asker,
+            responder: args.responder,
+            amount: formatEther(args.amount),
+            status: "Unknown",
+            timestamp
+          };
+
+          try {
+            const result = await publicClient.readContract({
+              address: ca,
+              abi,
+              functionName: "getRequestById",
+              args: [BigInt(args.id)],
+            });
+            const statusMapping = ["Pending", "Completed", "Rejected"];
+            req.status = statusMapping[result[3]];
+          } catch (err) {
+            console.error(`Error fetching request ID ${args.id}:`, err);
+            req.status = "Invalid";
+          }
+          return req;
+        })
+      );
+
+      setRequests(decodedRequests);
+      return;
+    } catch (error) {
+      console.error("Error fetching logs:", error);
+      return;
+    }
+  };
+
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  useEffect(() => {
+    if (isConfirmed) {
+      setLoadingMessage(null);
+      setTimeout(() => setShowPopup(false), 2000);
+    } else if (isError) {
+      setLoadingMessage("Transaction failed. Please try again.");
+    }
+  }, [isConfirmed, isError]);
 
   return (
     <div className="flex flex-col lg:flex-row justify-center items-stretch px-6 py-10 w-full min-h-[calc(100vh-150px)] space-y-6 lg:space-y-0 lg:space-x-6">
@@ -156,6 +260,75 @@ const Home: NextPage = () => {
       <div className="flex flex-col w-full lg:w-2/3 p-6 bg-white rounded-2xl shadow space-y-2 max-h-[600px] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-base font-bold">Requests</h2>
+
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setSelectedList("asker")}
+              className={`px-6 text-sm btn-sm btn ${selectedList === "asker" ? "btn-primary text-white" : "border border-gray-300"
+                }`}
+            >
+              View Incoming Requests
+            </button>
+
+            <button
+              onClick={() => setSelectedList("responder")}
+              className={`px-6 text-sm btn-sm btn ${selectedList === "responder" ? "btn-primary text-white" : "border border-gray-300"
+                }`}
+            >
+              View My Sent Requests
+            </button>
+          </div>
+
+        </div>
+
+
+        <div className="space-y-4">
+          {requests
+            .filter((request) => {
+              if (!connectedAddress) return false; // Skip filtering if connectedAddress is undefined
+
+              if (selectedList === "asker") {
+                // Show requests where the asker is the connected address
+                return request.responder.toLowerCase() === connectedAddress.toLowerCase();
+              } else if (selectedList === "responder") {
+                // Show requests where the responder is the connected address
+                return request.asker.toLowerCase() === connectedAddress.toLowerCase();
+              }
+              return false;
+            })
+            .map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-row items-center justify-between p-4 border rounded-lg bg-gray-50"
+              >
+                <div className="text-sm">
+                  <p>
+                    <strong>Address:</strong>{" "}
+                    {selectedList === "asker" ? request.asker : request.responder}
+                  </p>
+                  <p>
+                    <strong>Amount:</strong> {request.amount} ETH
+                  </p>
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    <span
+                      className={`px-2 py-1 rounded font-bold ${request.status === "Completed"
+                        ? "bg-green-100 text-green-600"
+                        : request.status === "Pending"
+                          ? "bg-yellow-100 text-yellow-600"
+                          : "bg-red-100 text-red-600"
+                        }`}
+                    >
+                      {request.status}
+                    </span>
+                  </p>
+
+                  <p>
+                    <strong>Created At:</strong> {request.timestamp}
+                  </p>
+                </div>
+              </div>
+            ))}
         </div>
       </div>
     </div >
