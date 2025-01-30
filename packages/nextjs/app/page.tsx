@@ -1,72 +1,164 @@
 "use client";
 
-import Link from "next/link";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Address } from "~~/components/scaffold-eth";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseEther, isAddress } from "viem";
+import { useState, } from "react";
+import deployedContracts from "../contracts/deployedContracts";
+
 
 const Home: NextPage = () => {
+  const NETWORK_ID = process.env.NEXT_FOUNDRY_CHAIN_ID || "31337";
+  const CONTRACT_NAME = "Payme";
+
+  const contractDetails =
+    deployedContracts[NETWORK_ID as any as keyof typeof deployedContracts][CONTRACT_NAME];
+
+  const ca = contractDetails?.address;
+  const abi = contractDetails?.abi;
+  if (!ca || !abi) {
+    console.error("contract not properly configured");
+    return <div>Error: Contract not properly configured.</div>;
+  }
+
   const { address: connectedAddress } = useAccount();
+  const { data: hash, isPending, writeContract } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError } = useWaitForTransactionReceipt({ hash });
+
+  const handleCreateRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setPopupAction("Create"); // 
+    setShowPopup(true);
+    setLoadingMessage("Transaction submitted! Waiting for confirmation...");
+
+    writeContract({
+      abi,
+      address: ca,
+      functionName: "createRequest",
+      args: [formResponder, parseEther(formAmount)],
+    });
+  };
+
+  const [formResponder, setFormResponder] = useState("");
+  const [formAmount, setFormAmount] = useState("");
+  const isFormValid = () => {
+    if (!formResponder || !formAmount) return false;
+    const amount = parseEther(formAmount);
+    if (amount <= 0n) return false;
+    if (formResponder.toLowerCase() === connectedAddress?.toLowerCase()) return false;
+    return true;
+  };
+
+  const [isValid, setIsValid] = useState(true);
+  const validateAddress = (addr: string) => {
+    if (isAddress(addr)) {
+      setIsValid(true);
+    } else {
+      setIsValid(false);
+    }
+  };
+
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupAction, setPopupAction] = useState("");
 
   return (
-    <>
-      <div className="flex items-center flex-col flex-grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
-            <span className="block text-lg mb-2">Foundry Edition</span>
-          </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col sm:flex-row">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address address={connectedAddress} />
-          </div>
+    <div className="flex flex-col lg:flex-row justify-center items-stretch px-6 py-10 w-full min-h-[calc(100vh-150px)] space-y-6 lg:space-y-0 lg:space-x-6">
+      {/* Form container (20% width) */}
+      <div className="relative w-full lg:w-1/3 p-6 bg-white rounded-2xl shadow">
+        <h2 className="text-base font-bold mb-4">Create a Request</h2>
 
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2" htmlFor="responder-address">
+            Responder Address:
+          </label>
+          <input
+            id="responder-address"
+            type="text"
+            placeholder="0xAddress"
+            className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm overflow-x-auto"
+            style={{ wordBreak: "break-all" }}
+            onChange={(e) => {
+              setFormResponder(e.target.value);
+              validateAddress(e.target.value);
+            }}
+          />
+          {!isValid && formResponder.length > 0 && <p style={{ color: "red" }}>Invalid ethereum address!</p>}
         </div>
 
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2" htmlFor="amount">
+            Amount:
+          </label>
+          <input
+            id="amount"
+            type="text"
+            placeholder="e.g., 1 ETH"
+            className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm"
+            onChange={(e) => setFormAmount(e.target.value)}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-primary w-full text-bold text-white"
+          onClick={handleCreateRequest}
+          disabled={isPending || isConfirming || !isFormValid()}
+        >
+          {isPending ? "Confirming..." : "Create"}
+        </button>
+
+        {/*Show transaction hash */}
+        {/* {hash && <div className="mt-2 text-sm text-gray-500">Tx Hash: {hash}</div>} */}
+
+        {/* Show loading popup */}
+        {showPopup && (
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center relative">
+
+              <button
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowPopup(false)}
+              >
+              </button>
+
+              <h3 className="text-lg font-bold text-blue-600">
+                {popupAction === "Create" && "Processing Request..."}
+                {popupAction === "Complete" && "Completing Request..."}
+                {popupAction === "Reject" && "Rejecting Request..."}
+              </h3>
+
+              <p className="text-gray-700 mt-2">{loadingMessage}</p>
+
+              {isConfirming && <p className="text-yellow-500 mt-2">Waiting for Confirmation...</p>}
+              {isConfirmed && <p className="text-green-500 mt-2">Transaction Confirmed ✅</p>}
+              {isError && <p className="text-red-500 mt-2">Transaction Failed ❌</p>}
+
+              <button
+                className="mt-4 px-4 py-2 rounded-lg rounded-2xl text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
+                onClick={() => setShowPopup(false)}
+              >
+                Close
+              </button>
+
             </div>
           </div>
+        )}
+
+        {/* Show status messages */}
+        {/* {isConfirming && <div className="mt-2 text-sm text-yellow-500">Waiting for Confirmation...</div>}
+        {isConfirmed && <div className="mt-2 text-sm text-green-500">Transaction Confirmed ✅</div>} */}
+      </div>
+
+      {/* Request list container (80% width) */}
+      <div className="flex flex-col w-full lg:w-2/3 p-6 bg-white rounded-2xl shadow space-y-2 max-h-[600px] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-base font-bold">Requests</h2>
         </div>
       </div>
-    </>
+    </div >
   );
 };
 
