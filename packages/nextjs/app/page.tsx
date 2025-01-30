@@ -66,6 +66,58 @@ const Home: NextPage = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [popupAction, setPopupAction] = useState("");
 
+  const handleCompleteRequest = async (id: number, amount: string) => {
+    try {
+      if (!connectedAddress) {
+        alert("Please connect your wallet to complete the request.");
+        return;
+      }
+
+      setPopupAction("Complete"); // 
+      setShowPopup(true);
+      setLoadingMessage(`Completing request #${id}...`);
+
+      // Write contract interaction
+      writeContract({
+        address: ca,
+        abi,
+        functionName: "completeRequest",
+        args: [BigInt(id)], // Convert ID to BigInt
+        value: parseEther(amount), // Send the amount in ETH as msg.value
+      });
+      return;
+    } catch (error) {
+      console.error("failed to complete request: ", error);
+      alert("failed to complete request");
+      return;
+    }
+  };
+
+  const handleRejectRequest = async (id: number) => {
+    try {
+      if (!connectedAddress) {
+        alert("Please connect your wallet to complete the request.");
+        return;
+      }
+
+      setPopupAction("Reject");
+      setShowPopup(true);
+      setLoadingMessage(`Rejecting request #${id}...`);
+
+      writeContract({
+        address: ca,
+        abi,
+        functionName: "rejectRequest",
+        args: [BigInt(id)],
+      });
+      return;
+    } catch (error) {
+      console.error("failed to reject the request: ", error);
+      alert("failed to reject the request");
+      return;
+    }
+  };
+
   interface Request {
     id: number;
     asker: string;
@@ -277,6 +329,7 @@ const Home: NextPage = () => {
             >
               View My Sent Requests
             </button>
+
           </div>
 
         </div>
@@ -327,6 +380,27 @@ const Home: NextPage = () => {
                     <strong>Created At:</strong> {request.timestamp}
                   </p>
                 </div>
+                {/* Only show buttons for Pending requests */}
+                {selectedList === "asker" && request.status === "Pending" && (
+                  <div className="flex space-x-3 pr-4">
+                    <div>
+                      <button
+                        onClick={() => handleCompleteRequest(request.id, request.amount)}
+                        className="btn btn-sm bg-green-100 text-green-600"
+                      >
+                        Complete
+                      </button>
+                    </div>
+                    <div>
+                      <button
+                        onClick={() => handleRejectRequest(request.id)}
+                        className="btn btn-sm bg-red-100 text-red-600"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
         </div>
