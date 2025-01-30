@@ -206,6 +206,26 @@ const Home: NextPage = () => {
     }
   };
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const handleRefresh = async () => {
+    if (cooldown > 0) return;
+
+    setIsRefreshing(true);
+    await fetchRequests();
+    setIsRefreshing(false);
+    setCooldown(10);
+
+    const interval = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev === 1) {
+          clearInterval(interval); // Stop timer at 0
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
 
   useEffect(() => {
     fetchRequests();
@@ -330,6 +350,14 @@ const Home: NextPage = () => {
               View My Sent Requests
             </button>
 
+            {/*Refresh Button (Closer to Sent Requests) */}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing || cooldown > 0}
+              className="btn btn-sm btn-outline border border-gray-300 text-gray-600 hover:bg-gray-100"
+            >
+              {isRefreshing ? "🔄 Refreshing..." : cooldown > 0 ? `⏳ Wait ${cooldown}s` : "🔄"}
+            </button>
           </div>
 
         </div>
