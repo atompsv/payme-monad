@@ -17,7 +17,7 @@ export const useNetworkColor = (chainId?: AllowedChainIds) => {
   const { resolvedTheme } = useTheme();
 
   const chain = useSelectedNetwork(chainId);
-  const isDarkMode = resolvedTheme === "dark";
+  const isDarkMode = resolvedTheme === "light";
 
   return getNetworkColor(chain, isDarkMode);
 };
