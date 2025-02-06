@@ -13,10 +13,12 @@ contract Payme {
         address responder;
         uint amount;
         uint8 status;
-    }   
+        uint256 createdAt;
+    }
 
     uint public nextId = 1;
     mapping (uint => Request) requestInfo;
+    mapping(address => uint[]) public billsByAddress;
 
     function createRequest(address responder, uint amount) public {
         require(amount > 0, "amount should be greater zero");
@@ -28,14 +30,18 @@ contract Payme {
             asker : msg.sender,
             responder : responder,
             amount : amount,
-            status : uint8(Status.Pending)
+            status : uint8(Status.Pending),
+            createdAt: block.timestamp
         });
+
+        billsByAddress[msg.sender].push(id);
+        billsByAddress[responder].push(id);
+
         nextId++;
 
         // emit
-        emit RequestCreated(id, msg.sender, responder, amount);
+       emit RequestCreated(id, msg.sender, responder, amount);
     }
-
 
     function completeRequest(uint id) public payable   {
         require(id > 0  && id < nextId, "invalid request id");
@@ -67,8 +73,13 @@ contract Payme {
     }
 
 
-    function getRequestById(uint id) public  view returns (address asker, address responder, uint amount, uint8 status)  {
+    function getRequestById(uint id) public  view returns (address asker, address responder, uint amount, uint8 status,uint256 createdAt){
         require(id > 0  && id < nextId, "invalid request id");
-        return (requestInfo[id].asker, requestInfo[id].responder, requestInfo[id].amount, requestInfo[id].status);
+        return (requestInfo[id].asker, requestInfo[id].responder, requestInfo[id].amount, requestInfo[id].status, requestInfo[id].createdAt);
     }
+
+    function getBillsByAddress(address user) public view returns (uint[] memory) {
+        return billsByAddress[user];
+    }
+
 }
