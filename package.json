@@ -54,6 +54,8 @@
     "node": ">=18.18.0"
   },
   "dependencies": {
-    "forge-std": "^1.1.2"
+    "dotenv": "^16.4.7",
+    "forge-std": "^1.1.2",
+    "fs": "^0.0.1-security"
   }
 }
