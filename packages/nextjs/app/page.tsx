@@ -38,7 +38,7 @@ const Home: NextPage = () => {
       abi,
       address: ca,
       functionName: "createRequest",
-      args: [formResponder, BigInt(formAmount)],
+      args: [formResponder, parseEther(formAmount)],
     });
 
     setFormResponder("");
