@@ -149,7 +149,7 @@ const Home: NextPage = () => {
         abi,
         functionName: "getBillsByAddress",
         args: [userAddress],
-      }))];
+      }))].reverse();
 
       const request = await Promise.all(
         bills.map(async (id) => {
@@ -283,7 +283,7 @@ const Home: NextPage = () => {
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
                 onClick={() => setShowPopup(false)}
               >
-                x
+                ❌
               </button>
 
               {/* Popup Title */}
