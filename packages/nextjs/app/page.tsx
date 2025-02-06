@@ -230,7 +230,7 @@ const Home: NextPage = () => {
 
         <div className="mb-4">
           <label className="block text-sm font-medium mb-2" htmlFor="responder-address">
-            Responder Address:
+            Payer Address:
           </label>
           <input
             id="responder-address"
