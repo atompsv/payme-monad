@@ -3,15 +3,14 @@
 import type { NextPage } from "next";
 import { useAccount, usePublicClient } from "wagmi";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseEther, isAddress, parseAbiItem, decodeEventLog, formatEther } from "viem";
+import { parseEther, isAddress, formatEther } from "viem";
 import { useState, useEffect } from "react";
 import deployedContracts from "../contracts/deployedContracts";
 import { format } from "date-fns";
 
-
-
 const Home: NextPage = () => {
-  const NETWORK_ID = process.env.NEXT_FOUNDRY_CHAIN_ID || "31337";
+  const NETWORK_ID = process.env.NEXT_PUBLIC_MONAD_CHAIN_ID || "20143";
+  // const NETWORK_ID = "31337"; // foundry
   const CONTRACT_NAME = "Payme";
 
   const contractDetails =
@@ -24,7 +23,7 @@ const Home: NextPage = () => {
     return <div>Error: Contract not properly configured.</div>;
   }
 
-  const { address: connectedAddress } = useAccount();
+  const { address: connectedAddress, isConnected } = useAccount();
   const { data: hash, isPending, writeContract } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed, isError } = useWaitForTransactionReceipt({ hash });
 
@@ -129,84 +128,62 @@ const Home: NextPage = () => {
     responder: string;
     amount: string;
     status: string;
-    timestamp: string;
+    createdAt: string;
   }
 
   const [requests, setRequests] = useState([
-    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", timestamp: "2021-10-01 12:00:00" },
+    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", createdAt: "2021-10-01 12:00:00" },
   ]);
   const [selectedList, setSelectedList] = useState("asker");
 
-
   const publicClient = usePublicClient();
-  const fetchRequests = async () => {
+  const fetchRequests = async (userAddress: string) => {
     try {
-      if (!publicClient) {
-        console.error("Public client is not defined.");
+      if (!publicClient || !userAddress) {
+        console.error("Public client or connected address is undefined.");
         return;
       }
 
-      const logs = await publicClient.getLogs({
+      const bills: bigint[] = [...(await publicClient.readContract({
         address: ca,
-        fromBlock: 0n,
-        toBlock: "latest",
-        event: parseAbiItem('event RequestCreated(uint requestId, address indexed asker, address indexed responder, uint amount)'),
-      });
+        abi,
+        functionName: "getBillsByAddress",
+        args: [userAddress],
+      }))];
 
-      const reversedLogs = logs.reverse();
-      const decodedRequests = await Promise.all(
-        reversedLogs.map(async (log) => {
-          const { args } = decodeEventLog({
-            // TODO: Fix this to use the correct ABI
-            abi: [
-              {
-                type: "event",
-                name: "RequestCreated",
-                inputs: [
-                  { indexed: false, name: "id", type: "uint256" },
-                  { indexed: true, name: "asker", type: "address" },
-                  { indexed: true, name: "responder", type: "address" },
-                  { indexed: false, name: "amount", type: "uint256" },
-                ],
-              },
-            ],
-            data: log.data,
-            topics: log.topics,
-          });
-
-          const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
-          const timestamp = format(new Date(Number(block.timestamp) * 1000), "yyyy-MM-dd HH:mm:ss"); // Convert to readable date
-
-          const req: Request = {
-            id: Number(args.id),
-            asker: args.asker,
-            responder: args.responder,
-            amount: formatEther(args.amount),
-            status: "Unknown",
-            timestamp
-          };
-
+      const request = await Promise.all(
+        bills.map(async (id) => {
           try {
+            if (!id || id <= 0n) {
+              return;
+            }
+
             const result = await publicClient.readContract({
               address: ca,
               abi,
               functionName: "getRequestById",
-              args: [BigInt(args.id)],
+              args: [id],
             });
+
             const statusMapping = ["Pending", "Completed", "Rejected"];
-            req.status = statusMapping[result[3]];
-          } catch (err) {
-            console.error(`Error fetching request ID ${args.id}:`, err);
-            req.status = "Invalid";
+            return {
+              id: Number(id),
+              asker: result[0],
+              responder: result[1],
+              amount: formatEther(result[2]), // Convert wei to ETH
+              status: statusMapping[Number(result[3])],
+              createdAt: format(new Date(Number(result[4]) * 1000), "yyyy-MM-dd HH:mm:ss"),
+            };
+          } catch (error) {
+            console.error(`Error fetching request for ID ${id}:`, error);
+            return;
           }
-          return req;
         })
       );
-
-      setRequests(decodedRequests);
+      setRequests(request.filter((req): req is Request => req !== null));
       return;
     } catch (error) {
-      console.error("Error fetching logs:", error);
+      console.error("Error fetching requests:", error);
       return;
     }
   };
@@ -215,9 +192,8 @@ const Home: NextPage = () => {
   const [cooldown, setCooldown] = useState(0);
   const handleRefresh = async () => {
     if (cooldown > 0) return;
-
     setIsRefreshing(true);
-    await fetchRequests();
+    await fetchRequests(connectedAddress || "");
     setIsRefreshing(false);
     setCooldown(10);
 
@@ -231,11 +207,6 @@ const Home: NextPage = () => {
     }, 1000);
   };
 
-
-  useEffect(() => {
-    fetchRequests();
-  }, []);
-
   useEffect(() => {
     if (isConfirmed) {
       setLoadingMessage(null);
@@ -244,6 +215,12 @@ const Home: NextPage = () => {
       setLoadingMessage("Transaction failed. Please try again.");
     }
   }, [isConfirmed, isError]);
+
+  useEffect(() => {
+    if (isConnected && connectedAddress) {
+      fetchRequests(connectedAddress);
+    }
+  }, [isConnected, connectedAddress]);
 
   return (
     <div className="flex flex-col lg:flex-row justify-center items-stretch px-6 py-10 w-full min-h-[calc(100vh-150px)] space-y-6 lg:space-y-0 lg:space-x-6">
@@ -277,8 +254,8 @@ const Home: NextPage = () => {
           <input
             id="amount"
             type="text"
-            value={formAmount} // ✅ Ensure input is controlled
-            placeholder="e.g., 1 ETH"
+            value={formAmount}
+            placeholder="e.g., 1 DMON"
             className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm"
             onChange={(e) => setFormAmount(e.target.value)}
           />
@@ -306,7 +283,7 @@ const Home: NextPage = () => {
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
                 onClick={() => setShowPopup(false)}
               >
-                ✖
+                close
               </button>
 
               {/* Popup Title */}
@@ -393,7 +370,7 @@ const Home: NextPage = () => {
                     {selectedList === "asker" ? request.asker : request.responder}
                   </p>
                   <p>
-                    <strong>Amount:</strong> {request.amount} ETH
+                    <strong>Amount:</strong> {request.amount} DMON
                   </p>
                   <p>
                     <strong>Status:</strong>{" "}
@@ -410,7 +387,7 @@ const Home: NextPage = () => {
                   </p>
 
                   <p>
-                    <strong>Created At:</strong> {request.timestamp}
+                    <strong>Created At:</strong> {request.createdAt}
                   </p>
                 </div>
                 {/* Only show buttons for Pending requests */}
