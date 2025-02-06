@@ -38,7 +38,7 @@ const Home: NextPage = () => {
       abi,
       address: ca,
       functionName: "createRequest",
-      args: [formResponder, parseEther(formAmount)],
+      args: [formResponder, BigInt(formAmount)],
     });
 
     setFormResponder("");
@@ -283,7 +283,7 @@ const Home: NextPage = () => {
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
                 onClick={() => setShowPopup(false)}
               >
-                close
+                x
               </button>
 
               {/* Popup Title */}
