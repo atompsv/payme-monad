@@ -41,11 +41,11 @@ export const useScaffoldContract = <
       Address,
       Contract<TContractName>["abi"],
       TWalletClient extends Exclude<GetWalletClientReturnType, null>
-        ? {
-            public: Client<Transport, Chain>;
-            wallet: TWalletClient;
-          }
-        : { public: Client<Transport, Chain> },
+      ? {
+        public: Client<Transport, Chain>;
+        wallet: TWalletClient;
+      }
+      : { public: Client<Transport, Chain> },
       Chain,
       Account
     >({

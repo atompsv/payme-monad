@@ -113,13 +113,13 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
             ...variables,
           } as WriteContractVariables<Abi, string, any[], Config, number>,
           mutateOptions as
-            | MutateOptions<
-                WriteContractReturnType,
-                WriteContractErrorType,
-                WriteContractVariables<Abi, string, any[], Config, number>,
-                unknown
-              >
-            | undefined,
+          | MutateOptions<
+            WriteContractReturnType,
+            WriteContractErrorType,
+            WriteContractVariables<Abi, string, any[], Config, number>,
+            unknown
+          >
+          | undefined,
         );
       const writeTxResult = await writeTx(makeWriteWithParams, { blockConfirmations, onBlockConfirmation });
 
@@ -159,13 +159,13 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
         ...variables,
       } as WriteContractVariables<Abi, string, any[], Config, number>,
       options as
-        | MutateOptions<
-            WriteContractReturnType,
-            WriteContractErrorType,
-            WriteContractVariables<Abi, string, any[], Config, number>,
-            unknown
-          >
-        | undefined,
+      | MutateOptions<
+        WriteContractReturnType,
+        WriteContractErrorType,
+        WriteContractVariables<Abi, string, any[], Config, number>,
+        unknown
+      >
+      | undefined,
     );
   };
 
