@@ -1,4 +1,4 @@
-import { defineChain } from "viem";
+import { defineChain, numberToHex } from "viem";
 import * as chains from "viem/chains";
 
 export type ScaffoldConfig = {
@@ -12,7 +12,8 @@ export type ScaffoldConfig = {
 export const DEFAULT_ALCHEMY_API_KEY = "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";
 
 export const monadDevnet = defineChain({
-  id: Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID),
+  // FIXME: we hard code like this because Typescript do not know the exact type of chain id.
+  id: Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID) as 20143,
   name: "Monad Devnet",
   nativeCurrency: { name: "Monad", symbol: "DMON", decimals: 18 },
   rpcUrls: {
