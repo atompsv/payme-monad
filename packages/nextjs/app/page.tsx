@@ -9,6 +9,48 @@ import deployedContracts from "../contracts/deployedContracts";
 import { format } from "date-fns";
 
 const Home: NextPage = () => {
+  const { address: connectedAddress, isConnected } = useAccount();
+  const { data: hash, isPending, writeContract } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError } = useWaitForTransactionReceipt({ hash });
+  const publicClient = usePublicClient();
+
+
+  const [formResponder, setFormResponder] = useState("");
+  const [formAmount, setFormAmount] = useState("");
+
+  const [requests, setRequests] = useState([
+    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", createdAt: "2021-10-01 12:00:00" },
+  ]);
+  const [selectedList, setSelectedList] = useState("asker");
+
+  const [isValid, setIsValid] = useState(true);
+
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupAction, setPopupAction] = useState("");
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (isConfirmed) {
+      setLoadingMessage(null);
+      setTimeout(() => setShowPopup(false), 2000);
+    } else if (isError) {
+      setLoadingMessage("Transaction failed. Please try again.");
+    }
+  }, [isConfirmed, isError]);
+
+  useEffect(() => {
+    const loadRequests = async () => {
+      if (isConnected && connectedAddress) {
+        console.log("Fetching requests for:", connectedAddress);
+        await fetchRequests(connectedAddress); // ✅ Make sure fetchRequests exists
+      }
+    };
+    loadRequests();
+  }, [isConnected, connectedAddress]);
+
   const NETWORK_ID = process.env.NEXT_PUBLIC_MONAD_CHAIN_ID || "20143";
   // const NETWORK_ID = "31337"; // foundry
   const CONTRACT_NAME = "Payme";
@@ -22,10 +64,6 @@ const Home: NextPage = () => {
     console.error("contract not properly configured");
     return <div>Error: Contract not properly configured.</div>;
   }
-
-  const { address: connectedAddress, isConnected } = useAccount();
-  const { data: hash, isPending, writeContract } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed, isError } = useWaitForTransactionReceipt({ hash });
 
   const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +85,7 @@ const Home: NextPage = () => {
     return;
   };
 
-  const [formResponder, setFormResponder] = useState("");
-  const [formAmount, setFormAmount] = useState("");
+
   const isFormValid = () => {
     if (!formResponder || !formAmount) return false;
     const amount = parseEther(formAmount);
@@ -57,7 +94,6 @@ const Home: NextPage = () => {
     return true;
   };
 
-  const [isValid, setIsValid] = useState(true);
   const validateAddress = (addr: string) => {
     if (isAddress(addr)) {
       setIsValid(true);
@@ -66,9 +102,7 @@ const Home: NextPage = () => {
     }
   };
 
-  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupAction, setPopupAction] = useState("");
+
 
   const handleCompleteRequest = async (id: number, amount: string) => {
     try {
@@ -131,12 +165,8 @@ const Home: NextPage = () => {
     createdAt: string;
   }
 
-  const [requests, setRequests] = useState([
-    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", createdAt: "2021-10-01 12:00:00" },
-  ]);
-  const [selectedList, setSelectedList] = useState("asker");
 
-  const publicClient = usePublicClient();
+
   const fetchRequests = async (userAddress: string) => {
     try {
       if (!publicClient || !userAddress) {
@@ -188,8 +218,7 @@ const Home: NextPage = () => {
     }
   };
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+
   const handleRefresh = async () => {
     if (cooldown > 0) return;
     setIsRefreshing(true);
@@ -207,20 +236,7 @@ const Home: NextPage = () => {
     }, 1000);
   };
 
-  useEffect(() => {
-    if (isConfirmed) {
-      setLoadingMessage(null);
-      setTimeout(() => setShowPopup(false), 2000);
-    } else if (isError) {
-      setLoadingMessage("Transaction failed. Please try again.");
-    }
-  }, [isConfirmed, isError]);
 
-  useEffect(() => {
-    if (isConnected && connectedAddress) {
-      fetchRequests(connectedAddress);
-    }
-  }, [isConnected, connectedAddress]);
 
   return (
     <div className="flex flex-col lg:flex-row justify-center items-stretch px-6 py-10 w-full min-h-[calc(100vh-150px)] space-y-6 lg:space-y-0 lg:space-x-6">
