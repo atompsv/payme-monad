@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   20143: {
     Payme: {
-      address: "0xf8866f0e481682ecb764f19bc3ebfbeeb1830089",
+      address: "0x35b0341ba14fe98be53cfb100b90ff512cbafb41",
       abi: [
         {
           type: "function",
@@ -59,6 +59,11 @@ const deployedContracts = {
               name: "amount",
               type: "uint256",
               internalType: "uint256",
+            },
+            {
+              name: "desc",
+              type: "string",
+              internalType: "string",
             },
           ],
           outputs: [],
@@ -115,6 +120,11 @@ const deployedContracts = {
               internalType: "uint8",
             },
             {
+              name: "desc",
+              type: "string",
+              internalType: "string",
+            },
+            {
               name: "createdAt",
               type: "uint256",
               internalType: "uint256",
@@ -143,6 +153,11 @@ const deployedContracts = {
               name: "id",
               type: "uint256",
               internalType: "uint256",
+            },
+            {
+              name: "desc",
+              type: "string",
+              internalType: "string",
             },
           ],
           outputs: [],
@@ -218,7 +233,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1738852202.json",
+      deploymentFile: "run-1739194048.json",
       deploymentScript: "Deploy.s.sol",
     },
   },
