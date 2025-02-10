@@ -17,6 +17,9 @@ const Home: NextPage = () => {
 
   const [formResponder, setFormResponder] = useState("");
   const [formAmount, setFormAmount] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+
+
 
   const [requests, setRequests] = useState([
     { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", description: "", createdAt: "2021-10-01 12:00:00" },
@@ -85,11 +88,12 @@ const Home: NextPage = () => {
       abi,
       address: ca,
       functionName: "createRequest",
-      args: [formResponder, parseEther(formAmount)],
+      args: [formResponder, parseEther(formAmount), formDescription],
     });
 
     setFormResponder("");
     setFormAmount("");
+    setFormDescription("");
 
     return;
   };
@@ -316,6 +320,24 @@ const Home: NextPage = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm"
             onChange={(e) => setFormAmount(e.target.value)}
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2" htmlFor="request-description">
+            Reason for Request:
+          </label>
+          <textarea
+            id="request-description"
+            value={formDescription}
+            placeholder="Why do you want to request this payment?"
+            maxLength={50}
+            className="w-full px-3 py-2 border border-gray-300 rounded-3xl text-sm resize-none"
+            rows={3}
+            onChange={(e) => setFormDescription(e.target.value)}
+          />
+          {formDescription.length > 200 && (
+            <p style={{ color: "red" }}>Description is too long (max 200 characters).</p>
+          )}
         </div>
 
         <button
