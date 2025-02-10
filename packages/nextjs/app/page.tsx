@@ -412,7 +412,6 @@ const Home: NextPage = () => {
               View My Sent Requests
             </button>
 
-            {/*Refresh Button (Closer to Sent Requests) */}
             <button
               onClick={handleRefresh}
               disabled={isRefreshing || cooldown > 0}
@@ -431,10 +430,8 @@ const Home: NextPage = () => {
               if (!connectedAddress) return false; // Skip filtering if connectedAddress is undefined
 
               if (selectedList === "asker") {
-                // Show requests where the asker is the connected address
                 return request.responder.toLowerCase() === connectedAddress.toLowerCase();
               } else if (selectedList === "responder") {
-                // Show requests where the responder is the connected address
                 return request.asker.toLowerCase() === connectedAddress.toLowerCase();
               }
               return false;
@@ -466,10 +463,20 @@ const Home: NextPage = () => {
                     </span>
                   </p>
 
-                  {request.status === "Rejected" && request.description && (
-                    <p>
-                      <strong>Reason:</strong>
-                      <span className="text-red-500 pl-2">{request.description}</span>
+                  {/* Description Field */}
+                  {request.description && (
+                    <p className="mt-1">
+                      <strong>Description: </strong>
+                      <span
+                        className={`${request.status === "Completed"
+                          ? "text-green-600"
+                          : request.status === "Pending"
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                          }`}
+                      >
+                        {request.description}
+                      </span>
                     </p>
                   )}
 
@@ -477,6 +484,7 @@ const Home: NextPage = () => {
                     <strong>Created At:</strong> {request.createdAt}
                   </p>
                 </div>
+
                 {/* Only show buttons for Pending requests */}
                 {selectedList === "asker" && request.status === "Pending" && (
                   <div className="flex space-x-3 pr-4">
@@ -535,14 +543,11 @@ const Home: NextPage = () => {
           </div>
         )}
 
-
-        {/* Reject Reason Popup */}
         {showRejectPopup && (
           <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center relative">
 
               <h3 className="text-lg font-bold text-gray-600">Do you want to reject?</h3>
-              {/* <p className="text-gray-700 mt-2">Please enter a reason for rejection:</p> */}
 
               {/* Reason Input */}
               <textarea
