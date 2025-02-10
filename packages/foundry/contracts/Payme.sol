@@ -5,6 +5,8 @@ contract Payme {
     event RequestCreated(uint requestId, address indexed asker, address indexed responder, uint amount);
     event RequestUpdated(uint requestId, address indexed asker, address indexed responder, uint amount, uint8 status);
 
+    uint constant MAX_DESCRIPTION = 50;
+
     enum Status {Pending, Completed, Rejected}
 
     struct Request {
@@ -13,6 +15,7 @@ contract Payme {
         address responder;
         uint amount;
         uint8 status;
+        string description;
         uint256 createdAt;
     }
 
@@ -20,9 +23,10 @@ contract Payme {
     mapping (uint => Request) requestInfo;
     mapping(address => uint[]) public billsByAddress;
 
-    function createRequest(address responder, uint amount) public {
+    function createRequest(address responder, uint amount, string memory desc) public {
         require(amount > 0, "amount should be greater zero");
         require(responder != msg.sender, "can't request to yourself");
+        require(bytes(desc).length <= MAX_DESCRIPTION, "description is too long");
 
         uint id = nextId;
         requestInfo[id] = Request({
@@ -31,6 +35,7 @@ contract Payme {
             responder : responder,
             amount : amount,
             status : uint8(Status.Pending),
+            description : desc,
             createdAt: block.timestamp
         });
 
