@@ -19,7 +19,7 @@ const Home: NextPage = () => {
   const [formAmount, setFormAmount] = useState("");
 
   const [requests, setRequests] = useState([
-    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", createdAt: "2021-10-01 12:00:00" },
+    { id: 1, asker: "0x12345...", responder: "0x67890...", amount: "1 ETH", status: "Pending", description: "", createdAt: "2021-10-01 12:00:00" },
   ]);
   const [selectedList, setSelectedList] = useState("asker");
 
@@ -31,6 +31,15 @@ const Home: NextPage = () => {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+
+  const [showRejectPopup, setShowRejectPopup] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState(""); // 
+
+
+  const [showCompletePopup, setShowCompletePopup] = useState(false);
+  const [completeAmount, setCompleteAmount] = useState("");
 
   useEffect(() => {
     if (isConfirmed) {
@@ -104,34 +113,9 @@ const Home: NextPage = () => {
 
 
 
-  const handleCompleteRequest = async (id: number, amount: string) => {
-    try {
-      if (!connectedAddress) {
-        alert("Please connect your wallet to complete the request.");
-        return;
-      }
 
-      setPopupAction("Complete"); // 
-      setShowPopup(true);
-      setLoadingMessage(`Completing request #${id}...`);
 
-      // Write contract interaction
-      writeContract({
-        address: ca,
-        abi,
-        functionName: "completeRequest",
-        args: [BigInt(id)], // Convert ID to BigInt
-        value: parseEther(amount), // Send the amount in ETH as msg.value
-      });
-      return;
-    } catch (error) {
-      console.error("failed to complete request: ", error);
-      alert("failed to complete request");
-      return;
-    }
-  };
-
-  const handleRejectRequest = async (id: number) => {
+  const handleRejectRequest = async (id: number, desc: string) => {
     try {
       if (!connectedAddress) {
         alert("Please connect your wallet to complete the request.");
@@ -146,7 +130,7 @@ const Home: NextPage = () => {
         address: ca,
         abi,
         functionName: "rejectRequest",
-        args: [BigInt(id)],
+        args: [BigInt(id), desc],
       });
       return;
     } catch (error) {
@@ -162,6 +146,7 @@ const Home: NextPage = () => {
     responder: string;
     amount: string;
     status: string;
+    description: string;
     createdAt: string;
   }
 
@@ -202,7 +187,8 @@ const Home: NextPage = () => {
               responder: result[1],
               amount: formatEther(result[2]), // Convert wei to ETH
               status: statusMapping[Number(result[3])],
-              createdAt: format(new Date(Number(result[4]) * 1000), "yyyy-MM-dd HH:mm:ss"),
+              description: result[4],
+              createdAt: format(new Date(Number(result[5]) * 1000), "yyyy-MM-dd HH:mm:ss"),
             };
           } catch (error) {
             console.error(`Error fetching request for ID ${id}:`, error);
@@ -237,6 +223,58 @@ const Home: NextPage = () => {
   };
 
 
+  const handleRejectPopup = (id: number) => {
+    setSelectedRequestId(id);
+    setShowRejectPopup(true);
+  };
+
+  const handleRejectSubmit = () => {
+    if (!rejectReason.trim()) {
+      alert("Please enter a reason before submitting.");
+      return;
+    }
+    if (selectedRequestId !== null) {
+      handleRejectRequest(selectedRequestId, rejectReason);
+    }
+    setShowRejectPopup(false);
+    setRejectReason("");
+  };
+
+  const handleCompletePopup = (id: number, amount: string) => {
+    setSelectedRequestId(id);
+    setCompleteAmount(amount); // Default amount from request
+    setShowCompletePopup(true);
+  };
+
+  const handleCompleteRequest = async () => {
+    try {
+      if (!connectedAddress || !selectedRequestId || parseFloat(completeAmount) <= 0) {
+        alert("Please connect your wallet to complete the request.");
+        return;
+      }
+
+      setShowCompletePopup(false); // Close popup
+
+
+      setPopupAction("Complete"); // 
+      setShowPopup(true);
+      setLoadingMessage(`Completing request #${selectedRequestId}...`);
+
+      return await writeContract({
+        address: ca,
+        abi,
+        functionName: "completeRequest",
+        args: [BigInt(selectedRequestId)], // Convert ID to BigInt
+        value: parseEther(completeAmount), // Send the amount in ETH as msg.value
+      });
+
+    } catch (error) {
+      console.error("failed to complete request: ", error);
+      alert("failed to complete request");
+      return;
+    }
+  };
+
 
   return (
     <div className="flex flex-col lg:flex-row justify-center items-stretch px-6 py-10 w-full min-h-[calc(100vh-150px)] space-y-6 lg:space-y-0 lg:space-x-6">
@@ -260,7 +298,10 @@ const Home: NextPage = () => {
               validateAddress(e.target.value);
             }}
           />
-          {!isValid && formResponder.length > 0 && <p style={{ color: "red" }}>Invalid ethereum address!</p>}
+          {!isValid && formResponder.length > 0 && <p style={{ color: "red" }}>invalid ethereum address!</p>}
+          {connectedAddress && formResponder && formResponder.toLowerCase() === connectedAddress.toLowerCase() && (
+            <p style={{ color: "red" }}>payer address should not be yourself</p>
+          )}
         </div>
 
         <div className="mb-4">
@@ -294,14 +335,6 @@ const Home: NextPage = () => {
           <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center relative">
 
-              {/*Close button (X icon) positioned at top-right */}
-              <button
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
-                onClick={() => setShowPopup(false)}
-              >
-                ❌
-              </button>
-
               {/* Popup Title */}
               <h3 className="text-lg font-bold text-blue-600">
                 {popupAction === "Create" && "Processing Request..."}
@@ -317,13 +350,22 @@ const Home: NextPage = () => {
               {isConfirmed && <p className="text-green-500 mt-2">Transaction Confirmed ✅</p>}
               {isError && <p className="text-red-500 mt-2">Transaction Failed ❌</p>}
 
+              <div className="mt-4">
+                <button
+                  className="px-4 py-2 w-full rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
+                  onClick={() => setShowPopup(false)}
+                >
+                  Close
+                </button>
+              </div>
+
             </div>
           </div>
         )}
 
         {/* Show status messages */}
         {/* {isConfirming && <div className="mt-2 text-sm text-yellow-500">Waiting for Confirmation...</div>}
-        {isConfirmed && <div className="mt-2 text-sm text-green-500">Transaction Confirmed ✅</div>} */}
+        {isConfirmed && <div className="mt-2 text-sm text-green-500">Transaction Confirmed</div>} */}
       </div>
 
       {/* Request list container (80% width) */}
@@ -402,6 +444,13 @@ const Home: NextPage = () => {
                     </span>
                   </p>
 
+                  {request.status === "Rejected" && request.description && (
+                    <p>
+                      <strong>Reason:</strong>
+                      <span className="text-red-500 pl-2">{request.description}</span>
+                    </p>
+                  )}
+
                   <p>
                     <strong>Created At:</strong> {request.createdAt}
                   </p>
@@ -411,7 +460,7 @@ const Home: NextPage = () => {
                   <div className="flex space-x-3 pr-4">
                     <div>
                       <button
-                        onClick={() => handleCompleteRequest(request.id, request.amount)}
+                        onClick={() => handleCompletePopup(request.id, request.amount)}
                         className="btn btn-sm bg-green-100 text-green-600"
                       >
                         Complete
@@ -419,7 +468,7 @@ const Home: NextPage = () => {
                     </div>
                     <div>
                       <button
-                        onClick={() => handleRejectRequest(request.id)}
+                        onClick={() => handleRejectPopup(request.id)}
                         className="btn btn-sm bg-red-100 text-red-600"
                       >
                         Reject
@@ -430,6 +479,83 @@ const Home: NextPage = () => {
               </div>
             ))}
         </div>
+
+        {showCompletePopup && (
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center relative">
+              <h3 className="text-lg font-bold text-green-600">Complete Request</h3>
+              <p className="text-gray-700 mt-2">Enter the amount you want to send:</p>
+
+              {/* Amount Input Field */}
+              <input
+                type="text"
+                className="w-full px-3 py-2 mt-3 border border-gray-300 rounded-md text-sm text-center"
+                value={completeAmount}
+                onChange={(e) => setCompleteAmount(e.target.value)}
+              />
+
+              {/* Buttons */}
+              <div className="flex justify-between mt-4">
+                <button
+                  className="px-4 py-2 rounded-md text-sm font-semibold bg-gray-300 text-gray-700 hover:bg-gray-400 transition-all"
+                  onClick={() => setShowCompletePopup(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 rounded-md text-sm font-semibold bg-green-500 text-white hover:bg-green-600 transition-all"
+                  onClick={() => handleCompleteRequest()}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* Reject Reason Popup */}
+        {showRejectPopup && (
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center relative">
+
+              <h3 className="text-lg font-bold text-gray-600">Do you want to reject?</h3>
+              {/* <p className="text-gray-700 mt-2">Please enter a reason for rejection:</p> */}
+
+              {/* Reason Input */}
+              <textarea
+                className="w-full p-2 border border-gray-300 rounded-lg mt-3 text-sm"
+                rows={3}
+                placeholder="Please enter a reason..."
+                value={rejectReason}
+                onChange={(e) => {
+                  setRejectReason(e.target.value);
+                  setErrorMessage(e.target.value.length > 50 ? "Reason cannot exceed 50 characters." : "");
+                }}
+
+              ></textarea>
+              {errorMessage && <p className="text-red-500 text-xs mt-1">{errorMessage}</p>}
+
+              {/* Action Buttons */}
+              <div className="flex justify-between mt-4">
+                <button
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
+                  onClick={() => setShowRejectPopup(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
+                  onClick={handleRejectSubmit}
+                >
+                  Submit
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
       </div>
     </div >
   );
